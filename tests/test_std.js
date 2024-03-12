@@ -120,13 +120,12 @@ function test_popen()
     f = std.popen("cat " + fname, "r");
     str = f.readAsString();
     f.close();
+    os.remove(fname);
 
     assert(str, content);
-
-    os.remove(fname);
 }
 
-function test_loadfile_unseekable()
+function test_loadfile_on_unseekable()
 {
     let fname = "/proc/version";
 
@@ -136,6 +135,29 @@ function test_loadfile_unseekable()
 
     /* test loadFile on unseekable file */
     assert(std.loadFile(fname), content);
+}
+
+function test_loadfile_on_pipe()
+{
+    let mypid = os.getpid();
+    let pipename = `test_pipe.${mypid}.fifo`;
+    let content = `hello world 42 PID ${mypid}`;
+    let cmd = `
+        test -p ${pipename} && exit 1
+        ( mkfifo ${pipename};
+          echo -n '${content}' > ${pipename};
+          rm ${pipename};
+        ) &
+        echo OK
+    `;
+    let pipe_cmd = std.popen(cmd, "r");
+    let nothing = pipe_cmd.readAsString();
+
+    let read_value = std.loadFile(pipename);
+
+    pipe_cmd.close();
+    assert(read_value, content);
+
 }
 
 function test_ext_json()
@@ -311,7 +333,8 @@ test_file1();
 test_file2();
 test_getline();
 test_popen();
-test_loadfile_unseekable();
+//test_loadfile_on_unseekable();
+test_loadfile_on_pipe();
 test_os();
 test_os_exec();
 test_timer();

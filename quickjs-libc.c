@@ -367,24 +367,23 @@ fail:
     return JS_EXCEPTION;
 }
 
-int js_load_file_forced(JSContext *ctx, FILE *fp, uint8_t **pbuf, size_t *pbuflen) {
+int js_load_file_forced(JSContext *ctx, FILE *fp, uint8_t **pbuf, size_t *pbuf_len) {
     uint8_t *mybuf = NULL;
     uint8_t *mybuf_new = NULL;
     size_t buf_pos = 0;
-    size_t buf_totalsize = 1; // extra 1 byte for trailing \0
+    size_t buf_size = 1; // extra 1 byte for trailing \0
     size_t buf_chunk = 4096;
 
     size_t buf_read;
 
     while (1) {
-        buf_totalsize += buf_chunk;
+        buf_size += buf_chunk;
         if (ctx) {
-            mybuf_new = js_realloc(ctx, mybuf, buf_totalsize);
+            mybuf_new = js_realloc(ctx, mybuf, buf_size);
         }
         else {
-            mybuf_new = realloc(mybuf, buf_totalsize);
+            mybuf_new = realloc(mybuf, buf_size);
         }
-        fprintf(stderr, "reallocating buffor from %p to new size: %ld at %p\n", mybuf, buf_totalsize, mybuf_new);
         if (!mybuf_new && mybuf) {
             if (ctx) {
                 js_free(ctx, mybuf);
@@ -400,13 +399,10 @@ int js_load_file_forced(JSContext *ctx, FILE *fp, uint8_t **pbuf, size_t *pbufle
         if (buf_read != buf_chunk) {
             break;
         }
-
-        // we read as many bytes as we wanted, so there's more
         buf_chunk *= 2; // double chunk size each time
     }
-        // we didn't get as many as we wanted, so it's over
     *pbuf = mybuf;
-    *pbuflen = buf_pos;
+    *pbuf_len = buf_pos;
     return 1;
 }
 
@@ -422,6 +418,10 @@ uint8_t *js_load_file(JSContext *ctx, size_t *pbuf_len, const char *filename)
         return NULL;
 
     if (fseek(f, 0, SEEK_END) < 0){
+        if (errno == ESPIPE) {
+            if (js_load_file_forced(ctx, f, &buf, &buf_len) == 1)
+                goto finalize;
+        }
         goto fail;
     }
 
