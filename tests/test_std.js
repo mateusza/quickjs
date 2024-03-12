@@ -126,6 +126,18 @@ function test_popen()
     os.remove(fname);
 }
 
+function test_loadfile_unseekable()
+{
+    let fname = "/proc/version";
+
+    let f = std.popen("cat " + fname, "r");
+    let content = f.readAsString();
+    f.close();
+
+    /* test loadFile on unseekable file */
+    assert(std.loadFile(fname), content);
+}
+
 function test_ext_json()
 {
     var expected, input, obj;
@@ -299,6 +311,7 @@ test_file1();
 test_file2();
 test_getline();
 test_popen();
+test_loadfile_unseekable();
 test_os();
 test_os_exec();
 test_timer();
